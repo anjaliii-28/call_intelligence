@@ -32,5 +32,3 @@ override_doctype_class = {
 }
 
 page_js = {"patient-360-dashboard": "public/js/patient_chat.js"}
-
-# app_include_js = []  # use page_js for the Patient 360 page only

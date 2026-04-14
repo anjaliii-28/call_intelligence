@@ -2,7 +2,6 @@ include MANIFEST.in
 include requirements.txt
 include modules.txt
 include patches.txt
-include hooks.py
 recursive-include call_intelligence *.py
 recursive-include call_intelligence *.json
 recursive-include call_intelligence *.js
