@@ -1,0 +1,8 @@
+# No PyPI dependencies beyond Frappe. Install on the bench:
+#   bench get-app ...
+#   bench setup requirements
+#
+# Runtime expects:
+#   - frappe (framework)
+#   - crm / Frappe CRM (CRM Lead)
+#   - frappe_whatsapp (WhatsApp Message, sending)

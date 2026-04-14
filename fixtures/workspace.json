@@ -1,0 +1,21 @@
+[
+	{
+		"doctype": "Workspace",
+		"name": "Call Intelligence",
+		"label": "Call Intelligence",
+		"title": "Call Intelligence",
+		"module": "Call Intelligence",
+		"app": "call_intelligence",
+		"type": "Workspace",
+		"icon": "phone",
+		"is_hidden": 0,
+		"sequence_id": 80.0,
+		"shortcuts": [
+			{
+				"type": "Page",
+				"link_to": "patient-360-dashboard",
+				"label": "Patient 360 Dashboard"
+			}
+		]
+	}
+]

@@ -1,0 +1,20 @@
+{
+	"docstatus": 0,
+	"doctype": "Page",
+	"icon": "dashboard",
+	"idx": 0,
+	"module": "Call Intelligence",
+	"name": "patient-360-dashboard",
+	"page_name": "patient-360-dashboard",
+	"roles": [
+		{
+			"role": "System Manager"
+		},
+		{
+			"role": "Desk User"
+		}
+	],
+	"standard": "Yes",
+	"system_page": 0,
+	"title": "Patient 360 Dashboard"
+}
