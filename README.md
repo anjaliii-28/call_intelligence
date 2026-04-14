@@ -146,6 +146,30 @@ Optional **test / routing** behaviour (e.g. test numbers) is described in the fr
 - For production, use HTTPS and frappe_docker’s production examples (reverse proxy, TLS).
 - Do not commit `.env`; inject secrets via host env or Docker secrets.
 
+## Troubleshooting: `required_apps = ["erpnext"]`
+
+This app **does not** use ERPNext. The only hooks file Frappe loads is at the **app root**:
+
+`apps/call_intelligence/hooks.py`
+
+It must **not** contain `required_apps = ["erpnext"]`. In this repository it does not.
+
+If `grep -r erpnext apps/call_intelligence` shows a match under **`apps/call_intelligence/call_intelligence/hooks.py`**, that path is **inside the Python package** and is **not** the app’s hooks file — it is usually a stray or mistaken copy. **Remove it** and clear cached bytecode:
+
+```bash
+# From frappe-bench (or inside the backend container)
+rm -f apps/call_intelligence/call_intelligence/hooks.py
+find apps/call_intelligence -type f -name "*.pyc" -delete
+find apps/call_intelligence -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; true
+bench restart   # or restart your Docker stack
+```
+
+Then confirm:
+
+```bash
+grep -r "erpnext" apps/call_intelligence/ || echo "ok: no erpnext in app tree"
+```
+
 ## Screenshots
 
 _Add screenshots of the Patient 360 Dashboard, lead list, and WhatsApp thread here after deployment._
