@@ -12,6 +12,7 @@
 		"sequence_id": 80.0,
 		"shortcuts": [
 			{
+				"doctype": "Workspace Shortcut",
 				"type": "Page",
 				"link_to": "patient-360-dashboard",
 				"label": "Patient 360 Dashboard"

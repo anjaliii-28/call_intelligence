@@ -20,6 +20,7 @@ def ensure_call_intelligence_workspace():
 
 	shortcuts = [
 		{
+			"doctype": "Workspace Shortcut",
 			"type": "Page",
 			"link_to": "patient-360-dashboard",
 			"label": "Patient 360 Dashboard",
