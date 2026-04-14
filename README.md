@@ -4,56 +4,76 @@ Frappe app for **patient communication and lead qualification** on top of [Frapp
 
 **ERPNext is not required.** The intended stack is **Frappe Framework → Frappe CRM (`crm`) → frappe_whatsapp → call_intelligence**. Do not install `erpnext` unless you already run it for other reasons; this app does not depend on it.
 
-## If you do not have Frappe CRM yet — start here
+## Quick start (Docker)
 
-Call Intelligence is **not** a stand-alone product: it runs **inside a Frappe site** and expects a **leads** doctype plus WhatsApp. Treat the following as the minimum path for someone starting from zero.
+Use the official **[frappe_docker](https://github.com/frappe/frappe_docker)** stack so you do **not** install bench, Python, or MariaDB on your host. Below assumes you already followed the frappe_docker **Getting started** guide (clone repo, copy `example.env` → `.env`, adjust passwords/ports, bring services up).
 
-### 1. Frappe bench and a site (if you have neither)
+### 1. Prerequisites
 
-Install [Frappe Bench](https://docs.frappe.io/framework/user/en/installation), create a bench, create a site, and start Redis / workers as described in the framework docs. You need a working **Desk** login before installing apps below.
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/) (e.g. Docker Desktop on macOS/Windows)
+- A working frappe_docker checkout — see [frappe_docker documentation](https://github.com/frappe/frappe_docker#documentation) and [environment variables](https://github.com/frappe/frappe_docker/blob/main/docs/02-setup/04-env-variables.md)
 
-### 2. Install Frappe CRM (recommended)
+### 2. Start the stack
 
-**Patient 360 is designed around [Frappe CRM](https://github.com/frappe/crm)** and the **CRM Lead** doctype (lead name, mobile, CRM-specific fields, Medplum lead creation, and the in-app **demo lead** button all assume `crm` is installed).
-
-From your bench:
-
-```bash
-cd /path/to/frappe-bench
-bench get-app https://github.com/frappe/crm.git
-bench --site <site-name> install-app crm
-bench --site <site-name> migrate
-```
-
-Confirm in Desk that **CRM Lead** exists and you can open the CRM app. If this step is skipped, read **Without Frappe CRM** below.
-
-### 3. Install frappe_whatsapp
+From your `frappe_docker` directory (use the same `compose.yaml` + overrides you normally use, e.g. MariaDB + Redis):
 
 ```bash
-bench get-app https://github.com/shridarpatil/frappe_whatsapp.git
-bench --site <site-name> install-app frappe_whatsapp
-bench --site <site-name> migrate
+docker compose up -d
 ```
 
-### 4. Install this app
+Wait until **backend**, **db**, and **redis** services are healthy. Service names can differ by version; list them with:
 
 ```bash
-bench get-app https://github.com/<your-org>/call_intelligence.git
-bench --site <site-name> install-app call_intelligence
-bench --site <site-name> migrate
+docker compose ps
 ```
 
-Order matters: **framework → site → CRM (recommended) → frappe_whatsapp → call_intelligence**.
+The container where you run **`bench`** is usually named **`backend`** in compose (e.g. `frappe_docker-backend-1`).
+
+### 3. Install apps inside the backend container
+
+Run **`bench`** inside the **backend** service (replace `<site-name>` with your site, e.g. `frontend` or the host you configured):
+
+```bash
+# From frappe_docker directory — adjust if your compose project name differs
+docker compose exec backend bench get-app https://github.com/frappe/crm.git
+docker compose exec backend bench get-app https://github.com/shridarpatil/frappe_whatsapp.git
+docker compose exec backend bench get-app https://github.com/anjaliii-28/call_intelligence.git
+
+docker compose exec backend bench --site <site-name> install-app crm
+docker compose exec backend bench --site <site-name> install-app frappe_whatsapp
+docker compose exec backend bench --site <site-name> install-app call_intelligence
+docker compose exec backend bench --site <site-name> migrate
+```
+
+Install order: **crm → frappe_whatsapp → call_intelligence**, then **migrate**.
+
+If your compose file names the bench service differently (e.g. `frappe`), use that instead of `backend`:
+
+```bash
+docker compose exec <bench-service-name> bench ...
+```
+
+### 4. Fixtures and first login
+
+```bash
+docker compose exec backend bench --site <site-name> import-fixtures
+```
+
+Open the site URL frappe_docker exposes (often **https://localhost:8080** or the host in your `.env`). Log in to **Desk → Call Intelligence** or open **Patient 360 Dashboard**.
+
+### 5. Mounting this app from a local clone (development)
+
+To edit `call_intelligence` on your machine and see changes in the container, follow frappe_docker’s **development** / **bind mount** patterns (e.g. `development` overrides, `apps` volume, or custom `Containerfile`). The app must live under the bench `apps` directory inside the container as **`call_intelligence`**. See [frappe_docker development docs](https://github.com/frappe/frappe_docker/tree/main/docs/05-development).
 
 ### Without Frappe CRM (limited)
 
-If you **cannot** install Frappe CRM, the app still loads and the dashboard APIs fall back to the core **`Lead`** doctype when **CRM Lead** is missing. Expect **gaps**:
+If **`crm`** is not installed, the app still loads and APIs may fall back to the generic **`Lead`** doctype when **CRM Lead** is missing. **Demo patient**, full Patient 360 field mapping, and **Medplum** lead creation expect **Frappe CRM** — install **`crm`** for the supported path.
 
-- Field names differ between the generic **`Lead`** doctype (when present on your site) and **CRM Lead**, so list cards and detail panels may show empty or “—” until you align data or extend the app.
-- **Create demo patient** (and anything that hard-codes `CRM Lead`) will not work until Frappe CRM is installed.
-- **Medplum → create lead** in `medplum_webhook.py` expects **CRM Lead**; that flow will fail without `crm`.
+---
 
-For the intended experience, **install Frappe CRM first**, then frappe_whatsapp, then Call Intelligence.
+## Optional: manual bench (no Docker)
+
+If you prefer a local bench without Docker, install the [Frappe framework](https://docs.frappe.io/framework/user/en/installation), create a site, then run the same **`bench get-app`** / **`install-app`** / **`migrate`** sequence on the host. App order is unchanged: **crm → frappe_whatsapp → call_intelligence**.
 
 ## Overview
 
@@ -103,24 +123,9 @@ flowchart LR
 
 Python: **no extra PyPI packages** beyond the bench (see `requirements.txt`).
 
-## Setup (bench) — condensed
-
-Follow **[If you do not have Frappe CRM yet — start here](#if-you-do-not-have-frappe-crm-yet--start-here)** first. Quick reference:
-
-1. `bench get-app` for **crm**, **frappe_whatsapp**, and **call_intelligence** (in that order).
-2. `bench --site <site> install-app` in the same order, then **`migrate`** after each app or once at the end.
-3. Optional: `bench setup requirements` when pulling new apps.
-4. **Fixtures**: if the workspace is missing after migrate:
-
-   ```bash
-   bench --site <site-name> import-fixtures
-   ```
-
-5. Open **Desk → Call Intelligence** or **Patient 360 Dashboard** from the app switcher.
-
 ## WhatsApp configuration
 
-Configure **frappe_whatsapp** (Meta WhatsApp Cloud API: Business ID, token, phone number ID, webhook URL, verify token). Point Meta’s webhook to the URL documented in the frappe_whatsapp app (typically under `/api/method/frappe_whatsapp...`).
+Configure **frappe_whatsapp** (Meta WhatsApp Cloud API: Business ID, token, phone number ID, webhook URL, verify token). Point Meta’s webhook to the public URL of your site (through frappe_docker’s reverse proxy / Traefik / nginx as you have it set up). In-container paths are documented in the frappe_whatsapp app (typically under `/api/method/frappe_whatsapp...`).
 
 For **outbound** messages from the Patient 360 composer:
 
@@ -132,14 +137,14 @@ Optional **test / routing** behaviour (e.g. test numbers) is described in the fr
 ## Medplum webhook (optional)
 
 - Whitelisted method: `call_intelligence.integrations.medplum_webhook.encounter_webhook` (supports `GET` for health checks).
-- Configure **Authorization** / **X-Medplum-Signature** as implemented in `medplum_webhook.py` using site config or environment variables (`MEDPLUM_WEBHOOK_BEARER_TOKEN`, `MEDPLUM_WEBHOOK_SECRET`). Do **not** commit secrets; set them in `site_config.json` or the environment.
+- Configure **Authorization** / **X-Medplum-Signature** as implemented in `medplum_webhook.py` using site config or environment variables (`MEDPLUM_WEBHOOK_BEARER_TOKEN`, `MEDPLUM_WEBHOOK_SECRET`). Do **not** commit secrets; set them in `site_config.json` or the environment exposed into the backend container.
 
 ## Deployment notes
 
-- Run **`bench migrate`** after pulling updates so fixtures and schema stay in sync.
-- Ensure **background workers** and **scheduler** are running if frappe_whatsapp relies on them for send/retry.
-- For production, serve the site behind HTTPS; configure WhatsApp and any webhooks with the public URL.
-- Omit `.env` from deployments; use host secrets or `site_config.json`.
+- After pulling app updates: **`bench migrate`** inside the backend container (same as host bench).
+- Keep **workers**, **scheduler**, and **Redis** services running as in your frappe_docker compose file.
+- For production, use HTTPS and frappe_docker’s production examples (reverse proxy, TLS).
+- Do not commit `.env`; inject secrets via host env or Docker secrets.
 
 ## Screenshots
 
