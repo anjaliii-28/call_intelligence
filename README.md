@@ -2,6 +2,8 @@
 
 Frappe app for **patient communication and lead qualification** on top of [Frappe CRM](https://github.com/frappe/crm) and [frappe_whatsapp](https://github.com/shridarpatil/frappe_whatsapp). It provides a **Patient 360 Dashboard** desk page, WhatsApp thread mirroring into **Communication**, optional **Medplum** encounter webhooks, and a **Call Intelligence** workspace entry in the sidebar.
 
+**ERPNext is not required.** The intended stack is **Frappe Framework → Frappe CRM (`crm`) → frappe_whatsapp → call_intelligence**. Do not install `erpnext` unless you already run it for other reasons; this app does not depend on it.
+
 ## If you do not have Frappe CRM yet — start here
 
 Call Intelligence is **not** a stand-alone product: it runs **inside a Frappe site** and expects a **leads** doctype plus WhatsApp. Treat the following as the minimum path for someone starting from zero.
@@ -47,7 +49,7 @@ Order matters: **framework → site → CRM (recommended) → frappe_whatsapp �
 
 If you **cannot** install Frappe CRM, the app still loads and the dashboard APIs fall back to the core **`Lead`** doctype when **CRM Lead** is missing. Expect **gaps**:
 
-- Field names differ (e.g. ERPNext **Lead** vs **CRM Lead**), so list cards and detail panels may show empty or “—” until you align data or extend the app.
+- Field names differ between the generic **`Lead`** doctype (when present on your site) and **CRM Lead**, so list cards and detail panels may show empty or “—” until you align data or extend the app.
 - **Create demo patient** (and anything that hard-codes `CRM Lead`) will not work until Frappe CRM is installed.
 - **Medplum → create lead** in `medplum_webhook.py` expects **CRM Lead**; that flow will fail without `crm`.
 
@@ -97,6 +99,7 @@ flowchart LR
 | **Frappe** (v14+; v15+ recommended) | Host site, Desk, migrations |
 | **Frappe CRM** (`crm`) | **CRM Lead** — full Patient 360 + Medplum + demo actions |
 | **frappe_whatsapp** | **WhatsApp Message**, Cloud API sending |
+| **ERPNext** | **Not used** — omit unless you need it for something else |
 
 Python: **no extra PyPI packages** beyond the bench (see `requirements.txt`).
 
