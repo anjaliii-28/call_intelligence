@@ -1,8 +1,9 @@
 node_modules/
 .env
 .env.*
-*.pyc
-__pycache__/
+*.py[cod]
+*$py.class
+**/__pycache__/
 sites/
 logs/
 *.log

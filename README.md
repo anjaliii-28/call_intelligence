@@ -4,76 +4,120 @@ Frappe app for **patient communication and lead qualification** on top of [Frapp
 
 **ERPNext is not required.** The intended stack is **Frappe Framework → Frappe CRM (`crm`) → frappe_whatsapp → call_intelligence**. Do not install `erpnext` unless you already run it for other reasons; this app does not depend on it.
 
-## Quick start (Docker)
+## Official app directory layout (Frappe)
 
-Use the official **[frappe_docker](https://github.com/frappe/frappe_docker)** stack so you do **not** install bench, Python, or MariaDB on your host. Below assumes you already followed the frappe_docker **Getting started** guide (clone repo, copy `example.env` → `.env`, adjust passwords/ports, bring services up).
+Bench loads **one** app package. Hooks and module metadata live at the **app root** (next to `setup.py`). Python code lives in the inner package folder with the same name.
 
-### 1. Prerequisites
+```
+apps/call_intelligence/              ← app root (this Git repository)
+  hooks.py                           ← ONLY valid hooks file (required)
+  modules.txt
+  patches.txt
+  setup.py
+  MANIFEST.in
+  requirements.txt
+  fixtures/                          ← bench migrate / import-fixtures read from here
+    workspace.json
+    dashboard.json
+  call_intelligence/                 ← Python package (import call_intelligence.api, …)
+    __init__.py
+    api.py
+    integrations/
+    page/
+    …
+  public/
+  www/
+```
 
-- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/) (e.g. Docker Desktop on macOS/Windows)
-- A working frappe_docker checkout — see [frappe_docker documentation](https://github.com/frappe/frappe_docker#documentation) and [environment variables](https://github.com/frappe/frappe_docker/blob/main/docs/02-setup/04-env-variables.md)
+**Do not** add a second `hooks.py` under `apps/call_intelligence/call_intelligence/hooks.py` — that path is wrong and is ignored by Frappe; remove any stray copy. **Do not** set `required_apps = ["erpnext"]`.
 
-### 2. Start the stack
+## Installation (Docker — recommended)
 
-From your `frappe_docker` directory (use the same `compose.yaml` + overrides you normally use, e.g. MariaDB + Redis):
+Use **[frappe_docker](https://github.com/frappe/frappe_docker)**. Adapt compose files to your environment; the steps below match a typical **backend + db + redis** layout.
+
+### 1. Clone and configure
+
+```bash
+git clone https://github.com/frappe/frappe_docker.git
+cd frappe_docker
+cp example.env .env
+```
+
+Edit `.env` at minimum:
+
+- **`DB_PASSWORD`** — e.g. `123` for local dev only; use a strong password elsewhere.
+- Follow [frappe_docker environment variables](https://github.com/frappe/frappe_docker/blob/main/docs/02-setup/04-env-variables.md) for your compose profile.
+
+**Optional:** Some frappe_docker compose variants define **`ERPNEXT_VERSION`** (e.g. `v16.9.1`) when you intentionally run an **ERPNext**-based image. **Call Intelligence does not require ERPNext** or that variable for the CRM + WhatsApp path; use the variables your chosen `compose.yaml` documents (often Frappe / custom image tags instead).
+
+### 2. Start containers
 
 ```bash
 docker compose up -d
 ```
 
-Wait until **backend**, **db**, and **redis** services are healthy. Service names can differ by version; list them with:
+Wait until **backend**, **db**, and **redis** (and any proxy) are healthy. Find the bench container name:
 
 ```bash
 docker compose ps
+# Often: docker compose exec backend bash
 ```
 
-The container where you run **`bench`** is usually named **`backend`** in compose (e.g. `frappe_docker-backend-1`).
+### 3. New site (example)
 
-### 3. Install apps inside the backend container
-
-Run **`bench`** inside the **backend** service (replace `<site-name>` with your site, e.g. `frontend` or the host you configured):
+Inside the backend container (or `docker compose exec backend bash`):
 
 ```bash
-# From frappe_docker directory — adjust if your compose project name differs
-docker compose exec backend bench get-app https://github.com/frappe/crm.git
-docker compose exec backend bench get-app https://github.com/shridarpatil/frappe_whatsapp.git
-docker compose exec backend bench get-app https://github.com/anjaliii-28/call_intelligence.git
-
-docker compose exec backend bench --site <site-name> install-app crm
-docker compose exec backend bench --site <site-name> install-app frappe_whatsapp
-docker compose exec backend bench --site <site-name> install-app call_intelligence
-docker compose exec backend bench --site <site-name> migrate
+bench new-site frontend --db-host db --admin-password <admin-password>
 ```
 
-Install order: **crm → frappe_whatsapp → call_intelligence**, then **migrate**.
+Use your real site name if not `frontend`, and the DB host/service name your compose file uses (`db` is common in frappe_docker).
 
-If your compose file names the bench service differently (e.g. `frappe`), use that instead of `backend`:
+### 4. Install apps (order matters)
 
 ```bash
-docker compose exec <bench-service-name> bench ...
+bench get-app https://github.com/frappe/crm.git
+bench --site frontend install-app crm
+
+bench get-app https://github.com/shridarpatil/frappe_whatsapp.git
+bench --site frontend install-app frappe_whatsapp
+
+bench get-app https://github.com/anjaliii-28/call_intelligence.git
+bench --site frontend install-app call_intelligence
+
+bench --site frontend migrate
 ```
 
-### 4. Fixtures and first login
+Replace `frontend` with your site name. Use your fork URL for `call_intelligence` if you did not clone from GitHub.
+
+### 5. First login
+
+Open the URL frappe_docker publishes (often **https://localhost:8080** or your `.env` host). Desk → **Call Intelligence** or **Patient 360 Dashboard**.
+
+### 6. Optional: import fixtures manually
+
+If the workspace did not appear after migrate:
 
 ```bash
-docker compose exec backend bench --site <site-name> import-fixtures
+bench --site frontend import-fixtures
 ```
 
-Open the site URL frappe_docker exposes (often **https://localhost:8080** or the host in your `.env`). Log in to **Desk → Call Intelligence** or open **Patient 360 Dashboard**.
+---
 
-### 5. Mounting this app from a local clone (development)
+## Quick reference (Docker)
 
-To edit `call_intelligence` on your machine and see changes in the container, follow frappe_docker’s **development** / **bind mount** patterns (e.g. `development` overrides, `apps` volume, or custom `Containerfile`). The app must live under the bench `apps` directory inside the container as **`call_intelligence`**. See [frappe_docker development docs](https://github.com/frappe/frappe_docker/tree/main/docs/05-development).
+- **Run bench:** `docker compose exec backend bench …` (or `docker exec -it frappe_docker-backend-1 bash` then `bench …`).
+- **Bind-mount this app for development:** follow [frappe_docker development](https://github.com/frappe/frappe_docker/tree/main/docs/05-development); the app directory name must be **`call_intelligence`** under `apps/`.
 
 ### Without Frappe CRM (limited)
 
-If **`crm`** is not installed, the app still loads and APIs may fall back to the generic **`Lead`** doctype when **CRM Lead** is missing. **Demo patient**, full Patient 360 field mapping, and **Medplum** lead creation expect **Frappe CRM** — install **`crm`** for the supported path.
+If **`crm`** is not installed, APIs may fall back to the generic **`Lead`** doctype when **CRM Lead** is missing. **Demo patient**, full Patient 360 field mapping, and **Medplum** lead creation expect **Frappe CRM** — install **`crm`** for the supported path.
 
 ---
 
 ## Optional: manual bench (no Docker)
 
-If you prefer a local bench without Docker, install the [Frappe framework](https://docs.frappe.io/framework/user/en/installation), create a site, then run the same **`bench get-app`** / **`install-app`** / **`migrate`** sequence on the host. App order is unchanged: **crm → frappe_whatsapp → call_intelligence**.
+Install the [Frappe framework](https://docs.frappe.io/framework/user/en/installation), create a site, then run the same **`bench get-app`** / **`install-app`** / **`migrate`** order: **crm → frappe_whatsapp → call_intelligence**.
 
 ## Overview
 
@@ -109,8 +153,10 @@ flowchart LR
 	MP --> WAM
 ```
 
-- **Fixtures**: `fixtures/workspace.json` defines the **Call Intelligence** workspace (shortcut to Patient 360). `hooks.py` lists the same workspace for `bench export-fixtures` / migrate import. `after_install` creates the workspace if it is still missing so the sidebar entry appears after `bench install-app`.
-- **Lead insight storage**: Lead qualification output is stored as an **Info** `Comment` on the lead (prefixed JSON), so no extra Custom Fields are required for basic installs.
+## Fixtures (Workspace and Dashboard)
+
+- **`fixtures/workspace.json`**: **Call Intelligence** workspace (shortcut to Patient 360). Listed in `hooks.py` for migrate; **`after_install`** also creates the workspace if it is still missing.
+- **`fixtures/dashboard.json`**: Shipped as an **empty array `[]`** so migrate does not import a **Dashboard** document. In Frappe, **Dashboard** requires at least one **chart** link; importing an incomplete dashboard breaks install. If you export a dashboard for this app later, set **`"is_standard": 0`** (not `1`) so Desk does not treat it as a locked standard dashboard (“Cannot edit Standard Dashboards”).
 
 ## Requirements (summary)
 
@@ -125,50 +171,40 @@ Python: **no extra PyPI packages** beyond the bench (see `requirements.txt`).
 
 ## WhatsApp configuration
 
-Configure **frappe_whatsapp** (Meta WhatsApp Cloud API: Business ID, token, phone number ID, webhook URL, verify token). Point Meta’s webhook to the public URL of your site (through frappe_docker’s reverse proxy / Traefik / nginx as you have it set up). In-container paths are documented in the frappe_whatsapp app (typically under `/api/method/frappe_whatsapp...`).
-
-For **outbound** messages from the Patient 360 composer:
-
-- Within the **24-hour customer care window**, session messages are sent as configured by frappe_whatsapp.
-- Outside that window, Meta may require **approved templates**; behaviour depends on your frappe_whatsapp version and template setup.
-
-Optional **test / routing** behaviour (e.g. test numbers) is described in the frappe_whatsapp documentation.
+Configure **frappe_whatsapp** (Meta WhatsApp Cloud API). Point Meta’s webhook at your site’s public URL. See the frappe_whatsapp docs for paths (typically `/api/method/frappe_whatsapp...`).
 
 ## Medplum webhook (optional)
 
 - Whitelisted method: `call_intelligence.integrations.medplum_webhook.encounter_webhook` (supports `GET` for health checks).
-- Configure **Authorization** / **X-Medplum-Signature** as implemented in `medplum_webhook.py` using site config or environment variables (`MEDPLUM_WEBHOOK_BEARER_TOKEN`, `MEDPLUM_WEBHOOK_SECRET`). Do **not** commit secrets; set them in `site_config.json` or the environment exposed into the backend container.
+- Configure **Authorization** / **X-Medplum-Signature** via `site_config.json` or environment (`MEDPLUM_WEBHOOK_BEARER_TOKEN`, `MEDPLUM_WEBHOOK_SECRET`). Do **not** commit secrets.
 
 ## Deployment notes
 
-- After pulling app updates: **`bench migrate`** inside the backend container (same as host bench).
-- Keep **workers**, **scheduler**, and **Redis** services running as in your frappe_docker compose file.
-- For production, use HTTPS and frappe_docker’s production examples (reverse proxy, TLS).
-- Do not commit `.env`; inject secrets via host env or Docker secrets.
+- After pulling app updates: **`bench migrate`** in the backend container.
+- Keep workers, scheduler, and Redis running per your compose file.
+- Do not commit `.env`; use secrets or Docker secrets in production.
 
-## Troubleshooting: `required_apps = ["erpnext"]`
+## Troubleshooting
 
-This app **does not** use ERPNext. The only hooks file Frappe loads is at the **app root**:
+### “Cannot edit Standard Dashboards”
 
-`apps/call_intelligence/hooks.py`
+Exported **Dashboard** fixtures must use **`"is_standard": 0`**. This repo does not ship dashboard rows in `hooks.py` fixtures; extend `fixtures/dashboard.json` only after you have valid **Dashboard Chart** links, or create dashboards from Desk.
 
-It must **not** contain `required_apps = ["erpnext"]`. In this repository it does not.
+### `No module named 'hooks'` or wrong hooks picked up
 
-If `grep -r erpnext apps/call_intelligence` shows a match under **`apps/call_intelligence/call_intelligence/hooks.py`**, that path is **inside the Python package** and is **not** the app’s hooks file — it is usually a stray or mistaken copy. **Remove it** and clear cached bytecode:
+- Valid file: **`apps/call_intelligence/hooks.py`** (app root only).
+- **Delete** any stray **`apps/call_intelligence/call_intelligence/hooks.py`** and clear bytecode:
 
 ```bash
-# From frappe-bench (or inside the backend container)
 rm -f apps/call_intelligence/call_intelligence/hooks.py
-find apps/call_intelligence -type f -name "*.pyc" -delete
+find apps/call_intelligence -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete 2>/dev/null
 find apps/call_intelligence -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; true
-bench restart   # or restart your Docker stack
+bench restart
 ```
 
-Then confirm:
+### `required_apps = ["erpnext"]`
 
-```bash
-grep -r "erpnext" apps/call_intelligence/ || echo "ok: no erpnext in app tree"
-```
+This app **must not** declare ERPNext. The repository root **`hooks.py`** does not include it. If you still see it after `grep`, remove stray files as above and **`git pull`** a clean copy of this app.
 
 ## Screenshots
 

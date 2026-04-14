@@ -17,10 +17,7 @@ add_to_apps_screen = [
 after_install = "call_intelligence.setup.install.after_install"
 
 fixtures = [
-	{
-		"dt": "Workspace",
-		"filters": [["name", "=", "Call Intelligence"]],
-	}
+	{"dt": "Workspace", "filters": [["name", "=", "Call Intelligence"]]},
 ]
 
 doc_events = {
